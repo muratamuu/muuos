@@ -8,6 +8,7 @@
 #include  <Protocol/DiskIo2.h>
 #include  <Protocol/BlockIo.h>
 #include  <Guid/FileInfo.h>
+#include  "frame_buffer_config.hpp"
 
 struct MemoryMap {
   UINTN buffer_size;
@@ -176,7 +177,7 @@ void Halt(void) {
 
 EFI_STATUS EFIAPI UefiMain(
     EFI_HANDLE image_handle,
-    EFI_SYSTEM_TABLE *system_table) {
+    EFI_SYSTEM_TABLE* system_table) {
   EFI_STATUS status;
 
   Print(L"Hello, MuuOS!\n");
@@ -227,7 +228,7 @@ EFI_STATUS EFIAPI UefiMain(
       gop->Mode->Info->HorizontalResolution,
       gop->Mode->Info->VerticalResolution,
       GetPixelFormatUnicode(gop->Mode->Info->PixelFormat),
-      gop->Mode->Info->HorizontalResolution);
+      gop->Mode->Info->PixelsPerScanLine);
   Print(L"Frame Buffer: 0x%0lx - 0x%0lx, Size: %lu bytes\n",
       gop->Mode->FrameBufferBase,
       gop->Mode->FrameBufferBase + gop->Mode->FrameBufferSize,
@@ -262,16 +263,16 @@ EFI_STATUS EFIAPI UefiMain(
 
   EFI_PHYSICAL_ADDRESS kernel_base_addr = 0x100000;
   status = gBS->AllocatePages(
-    AllocateAddress, EfiLoaderData,
-    (kernel_file_size + 0xfff) / 0x1000, &kernel_base_addr);
+      AllocateAddress, EfiLoaderData,
+      (kernel_file_size + 0xfff) / 0x1000, &kernel_base_addr);
   if (EFI_ERROR(status)) {
-    Print(L"failed to allocate pages: %r\n", status);
+    Print(L"failed to allocate pages: %r", status);
     Halt();
   }
 
   status = kernel_file->Read(kernel_file, &kernel_file_size, (VOID*)kernel_base_addr);
   if (EFI_ERROR(status)) {
-    Print(L"error: %r\n", status);
+    Print(L"error: %r", status);
     Halt();
   }
   Print(L"Kernel: 0x%0lx (%lu bytes)\n", kernel_base_addr, kernel_file_size);
@@ -292,9 +293,28 @@ EFI_STATUS EFIAPI UefiMain(
 
   UINT64 entry_addr = *(UINT64*)(kernel_base_addr + 24);
 
-  typedef void EntryPointType(UINT64, UINT64);
+  struct FrameBufferConfig config = {
+    (UINT8*)gop->Mode->FrameBufferBase,
+    gop->Mode->Info->PixelsPerScanLine,
+    gop->Mode->Info->HorizontalResolution,
+    gop->Mode->Info->VerticalResolution,
+    0
+  };
+  switch (gop->Mode->Info->PixelFormat) {
+    case PixelRedGreenBlueReserved8BitPerColor:
+      config.pixel_format = kPixelRGBResv8BitPerColor;
+      break;
+    case PixelBlueGreenRedReserved8BitPerColor:
+      config.pixel_format = kPixelBGRResv8BitPerColor;
+      break;
+    default:
+      Print(L"Unimplemented pixel format: %d\n", gop->Mode->Info->PixelFormat);
+      Halt();
+  }
+
+  typedef void EntryPointType(const struct FrameBufferConfig*);
   EntryPointType* entry_point = (EntryPointType*)entry_addr;
-  entry_point(gop->Mode->FrameBufferBase, gop->Mode->FrameBufferSize);
+  entry_point(&config);
 
   Print(L"All done\n");
 
