@@ -63,7 +63,6 @@ namespace pci {
 
   /** @brief 指定された PCI デバイスの 32 ビットレジスタを読み取る */
   uint32_t ReadConfReg(const Device& dev, uint8_t reg_addr);
-
   /** @brief 指定された PCI デバイスの 32 ビットレジスタに書き込む */
   void WriteConfReg(const Device& dev, uint8_t reg_addr, uint32_t value);
 

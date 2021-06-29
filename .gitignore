@@ -3,3 +3,6 @@ hankaku.bin
 *.o
 .*.d
 *.swp
+
+/html
+/ipxe_root

@@ -53,10 +53,10 @@ void SetIDTEntry(InterruptDescriptor& desc,
                  uint16_t segment_selector);
 
 class InterruptVector {
-  public:
-    enum Number {
-      kXHCI = 0x40,
-    };
+ public:
+  enum Number {
+    kXHCI = 0x40,
+  };
 };
 
 struct InterruptFrame {
